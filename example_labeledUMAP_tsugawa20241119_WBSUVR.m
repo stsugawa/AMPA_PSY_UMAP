@@ -20,21 +20,7 @@ WB_DEP = M(73:107,8:82);
 WB_HC = M(108:177,8:82);
 WB_SCH = M(178:219,8:82);
 
-
-%rmmissing
-rmWB_ASD = rmmissing(WB_ASD);
-rmWB_BIP = rmmissing(WB_BIP);
-rmWB_DEP = rmmissing(WB_DEP);
-rmWB_HC = rmmissing(WB_HC);
-rmWB_SCH = rmmissing(WB_SCH);
-%欠損値補完
-WB_ASD = fillmissing(WB_ASD, 'nearest');
-WB_BIP = fillmissing(WB_BIP, 'nearest');
-WB_DEP = fillmissing(WB_DEP, 'nearest');
-WB_HC  = fillmissing(WB_HC, 'nearest');
-WB_SCH = fillmissing(WB_SCH, 'nearest');
-
-% テーブルを縦に結合する(全部がNAなDEP２症例は削除された状態)
+% テーブルを縦に結合する
 exactD_table = vertcat(WB_ASD, WB_BIP, WB_DEP, WB_HC, WB_SCH);
 
 % テーブルを配列へ変換
@@ -72,7 +58,7 @@ spread = 10;
 [reduction, umap, clusterIds, extras] = ...
     run_umap(labeled_exactD,...
     'label_column','end',...
-    'target_weight',0.25,...
+    'target_weight',0.005,...
     'n_neighbors', n_neighbors,...
     'spread', spread,...
     'min_dist', min_dist,...

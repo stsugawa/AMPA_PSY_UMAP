@@ -45,18 +45,6 @@ def select_feature_columns(df: pd.DataFrame) -> List[str]:
     return num_cols
 
 
-
-def coerce_impute_numeric(df_feat: pd.DataFrame) -> pd.DataFrame:
-    """Convert strings (e.g., '#DIV/0!') to NaN, replace inf, drop all-NaN cols, and fill NaN with column median."""
-    X = df_feat.apply(pd.to_numeric, errors="coerce").replace([np.inf, -np.inf], np.nan)
-    # Drop columns that are entirely NaN
-    all_nan_cols = [c for c in X.columns if X[c].isna().all()]
-    if all_nan_cols:
-        print("[WARN] Dropping all-NaN columns:", all_nan_cols)
-        X = X.drop(columns=all_nan_cols)
-    # Fill with column median
-    X = X.apply(lambda s: s.fillna(s.median()), axis=0)
-    return X
 def residualize_by_age_sex(X_df: pd.DataFrame, age: np.ndarray, sex: np.ndarray) -> pd.DataFrame:
     """Per-feature OLS: feature ~ 1 + age + sex; return residuals."""
     model = LinearRegression()
@@ -117,27 +105,60 @@ def save_umap_plot(embedding: np.ndarray, labels: np.ndarray, title: str, out_pa
     plt.close()
 
 
-def prepare_matrix(df: pd.DataFrame, residualize: bool) -> Tuple[np.ndarray, np.ndarray]:
-    """Create X (N,D) and integer labels y (1..K)."""
-    feat_cols = select_feature_columns(df)
-    X_raw = df[feat_cols].copy()
-    X_raw = coerce_impute_numeric(X_raw)
+def prepare_matrix(
+    df: pd.DataFrame,
+    residualize: bool,
+) -> Tuple[np.ndarray, np.ndarray]:
+    """Create X (N, D) and integer labels y without imputation."""
 
-    # Residualize
+    if len(df) != EXPECTED_N:
+        raise ValueError(
+            f"Input dataset contains {len(df)} participants; "
+            f"expected {EXPECTED_N}."
+        )
+
+    feat_cols = select_feature_columns(df)
+
+    if len(feat_cols) != EXPECTED_D:
+        raise ValueError(
+            f"Detected {len(feat_cols)} regional feature columns; "
+            f"expected {EXPECTED_D}."
+        )
+
+    X_raw = require_complete_numeric(
+        df[feat_cols].copy(),
+        name="SUVR-WM feature matrix",
+        expected_shape=(EXPECTED_N, EXPECTED_D),
+    )
+
+    if df["group"].isna().any():
+        raise ValueError(
+            "Diagnostic group labels contain missing values."
+        )
+
     if residualize:
-        X_adj = residualize_by_age_sex(X_raw, pd.to_numeric(df["age"], errors="coerce").fillna(df["age"].median()).values,
-                           pd.to_numeric(df["sex"], errors="coerce").fillna(df["sex"].mode().iloc[0]).values)
+        covars = require_complete_numeric(
+            df[["age", "sex"]].copy(),
+            name="Age/sex covariates",
+            expected_shape=(EXPECTED_N, 2),
+        )
+
+        X_adj = residualize_by_age_sex(
+            X_raw,
+            covars["age"].to_numpy(dtype=float),
+            covars["sex"].to_numpy(dtype=float),
+        )
     else:
         X_adj = X_raw
 
-    # Standardize features
     scaler = StandardScaler()
-    X = scaler.fit_transform(X_adj.values)
+    X = scaler.fit_transform(
+        X_adj.to_numpy(dtype=float)
+    )
 
-    # Labels
     y_true = encode_labels(df["group"])
-    return X, y_true
 
+    return X, y_true
 
 def main():
     parser = argparse.ArgumentParser()

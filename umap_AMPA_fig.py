@@ -20,18 +20,6 @@ import umap
 import matplotlib.pyplot as plt
 
 
-def fill_missing_nearest(df: pd.DataFrame) -> pd.DataFrame:
-    """Column-wise nearest interpolation (like MATLAB fillmissing(...,'nearest')).
-    If edge NaNs remain, fill with column mean."""
-    out = df.copy()
-    for col in out.columns:
-        s = out[col]
-        s = s.interpolate(method="nearest", limit_direction="both")
-        if s.isna().any():
-            s = s.fillna(s.mean())
-        out[col] = s
-    return out
-
 
 def prepare_data(path_csv: str) -> (np.ndarray, np.ndarray):
     """
@@ -63,12 +51,6 @@ def prepare_data(path_csv: str) -> (np.ndarray, np.ndarray):
     WB_HC = M.iloc[r_hc[0]:r_hc[1], c0:c1]
     WB_SCH = M.iloc[r_sch[0]:r_sch[1], c0:c1]
 
-    # fill missing
-    WB_ASD = fill_missing_nearest(WB_ASD)
-    WB_BIP = fill_missing_nearest(WB_BIP)
-    WB_DEP = fill_missing_nearest(WB_DEP)
-    WB_HC = fill_missing_nearest(WB_HC)
-    WB_SCH = fill_missing_nearest(WB_SCH)
 
     exactD_table = pd.concat([WB_ASD, WB_BIP, WB_DEP, WB_HC, WB_SCH],
                              axis=0, ignore_index=True)
